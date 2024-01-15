@@ -1,5 +1,5 @@
 # Autoreg Ozan
-
+[(RU) README.md version](./README_RU.md)
 ## For what?
 This program was created by order of one of my clients for auto-registration and verification of accounts of the Turkish bank Ozan. It was required to insert a card into a new Spotify profile to receive a subscription to shares.
 
