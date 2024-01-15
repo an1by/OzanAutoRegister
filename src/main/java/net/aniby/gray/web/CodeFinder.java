@@ -13,7 +13,6 @@ import java.util.regex.Pattern;
 public class CodeFinder {
     private final DropMailAPI dropMail;
 
-    // emlhub.com
     public CodeFinder() throws URISyntaxException, IOException, ParseException, InterruptedException {
         this.dropMail = new DropMailAPI(Main.getConfig().getDropmailLink());
         while (email() == null || Main.getConfig().getBlacklistedDomains().contains(email().split("@")[1]))

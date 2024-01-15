@@ -5,13 +5,11 @@ import net.aniby.gray.driver.AndroidExecutor;
 import net.aniby.gray.storage.Passport;
 import net.aniby.utils.Colors;
 import net.aniby.utils.FileUtils;
-import net.aniby.utils.IOHelper;
 
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.net.URISyntaxException;
-import java.net.URLEncoder;
-import java.net.http.HttpResponse;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Arrays;

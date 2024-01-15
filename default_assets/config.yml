@@ -1,0 +1,18 @@
+url: "http://127.0.0.1:5723/wd/hub"
+deviceName: "emulator-5554"
+platformVersion: "10"
+
+ozanCode: "121212"
+
+fiveSimLink: "https://5sim.biz"
+fiveSimApiKey: ""
+
+dropmailLink: "https://mirror2.dropmail.info"
+blacklistedDomains:
+  - "emlhub.com"
+  - "yomail.info"
+  - "dropmail.me"
+  - "emltmp.com"
+  - "10mail.org"
+
+debug: true

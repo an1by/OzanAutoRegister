@@ -13,6 +13,7 @@ import net.aniby.gray.web.FiveSIM;
 import net.aniby.utils.Colors;
 import net.aniby.utils.FileUtils;
 import org.json.simple.JSONObject;
+import org.json.simple.parser.ParseException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -26,7 +27,6 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.time.Duration;
-import java.util.List;
 import java.util.Objects;
 import java.util.Random;
 
@@ -41,12 +41,15 @@ public class AndroidExecutor implements ExecutorInstance {
         FileUtils.createFile(savedCards);
 
         URL url = new URL(Main.getConfig().getUrl());
+//        URL url = new URL("http://127.0.0.1:5723/wd/hub");
         // Android
         DesiredCapabilities capabilities = new DesiredCapabilities();
 
         capabilities.setCapability("platformName", "Android");
         capabilities.setCapability("deviceName", Main.getConfig().getDeviceName());
         capabilities.setCapability("platformVersion", Main.getConfig().getPlatformVersion());
+//        capabilities.setCapability("deviceName", "emulator-5554");
+//        capabilities.setCapability("platformVersion", "10");
         capabilities.setCapability("automationName", "UIAutomator2");
 
         android = new AndroidDriver(url, capabilities);
@@ -54,6 +57,44 @@ public class AndroidExecutor implements ExecutorInstance {
 
     public String activeAppActivity() {
         return android.getCurrentPackage() + android.currentActivity();
+    }
+
+    @Test
+    public void text() {
+//        Main.debugWarning("Code disappeared! Block...");
+        forceClick(
+                By.xpath("//android.widget.EditText[@resource-id=\"com.ozan.android:id/editTextSpinner\" and @text=\"City\"]"),
+                10000L
+        );
+        forceClick(
+                By.xpath("//androidx.recyclerview.widget.RecyclerView[@resource-id=\"com.ozan.android:id/recyclerViewItems\"]/android.view.ViewGroup[1]"),
+                10000L
+        );
+        forceClick(
+                By.xpath("//android.widget.EditText[@resource-id=\"com.ozan.android:id/editTextSpinner\" and @text=\"District\"]"),
+                10000L
+        );
+        forceClick(
+                By.xpath("//androidx.recyclerview.widget.RecyclerView[@resource-id=\"com.ozan.android:id/recyclerViewItems\"]/android.view.ViewGroup[1]"),
+                10000L
+        );
+        forceClick(
+                By.xpath("//android.widget.EditText[@resource-id=\"com.ozan.android:id/editTextSpinner\" and @text=\"Neighbourhood\"]")
+        );
+        forceClick(
+                By.xpath("//androidx.recyclerview.widget.RecyclerView[@resource-id=\"com.ozan.android:id/recyclerViewItems\"]/android.view.ViewGroup[1]"),
+                10000L
+        );
+
+        int buildingNumber = random.nextInt(1, 100);
+        forceClick(By.id("com.ozan.android:id/editTextAddress")).sendKeys(
+                "AAAAA" + " " + buildingNumber + ", " + random.nextInt(390000, 490000)
+        );
+
+        forceClick(By.id("com.ozan.android:id/editTextBuilding"), 10000L).sendKeys(String.valueOf(buildingNumber));
+        forceClick(By.id("com.ozan.android:id/editTextApartment"), 10000L).sendKeys(String.valueOf(random.nextInt(1, 10)));
+
+        forceClick(By.id("com.ozan.android:id/buttonContinue"), 10000L);
     }
 
     public String registerWithPhone() throws Exception {
@@ -67,7 +108,7 @@ public class AndroidExecutor implements ExecutorInstance {
         String phoneNumber = (String) bought.get("phone");
         phoneNumber = phoneNumber.substring(3);
 
-        WebElement phoneNumberInput = searchUntilFind(By.id("com.ozan.android:id/editTextPhoneNumber"));
+        WebElement phoneNumberInput = forceClick(By.id("com.ozan.android:id/editTextPhoneNumber"), -1);
         phoneNumberInput.clear();
 
         Main.debugInfo("Offered phone number: " + phoneNumber);
@@ -77,15 +118,12 @@ public class AndroidExecutor implements ExecutorInstance {
 
         Main.debugInfo("Waiting for code...");
         String code = FiveSIM.getCode(id);
-//        String code = null;
         if (code == null) {
             Main.debugWarning("Code disappeared! Block...");
-            forceClick(By.id("com.ozan.android:id/imageViewBackButton")); // Return back
-//            return null;
-
             FiveSIM.ban(id);
+
+            forceClick(By.id("com.ozan.android:id/imageViewBackButton"), -1); // Return back
             return registerWithPhone();
-//            return null;
         }
         FiveSIM.end(id);
         return code;
@@ -112,6 +150,18 @@ public class AndroidExecutor implements ExecutorInstance {
 
     private static final Random random = new Random();
 
+    public CodeFinder getValidFinder() throws URISyntaxException, IOException, ParseException, InterruptedException {
+        CodeFinder finder = new CodeFinder();
+        forceClick(By.id("com.ozan.android:id/editTextEmail"), -1).sendKeys(finder.email());
+        forceClick(By.id("com.ozan.android:id/buttonContinue"));
+
+        WebElement error = searchUntilFind(By.id("com.ozan.android:id/textinput_error"));
+        if (error != null) {
+            forceClick(By.id("com.ozan.android:id/editTextEmail"), -1).clear();
+            return getValidFinder();
+        }
+        return finder;
+    }
 
     public void processingStep() throws Exception {
         while (!Objects.equals(android.getCurrentPackage(), appPackage))
@@ -138,15 +188,15 @@ public class AndroidExecutor implements ExecutorInstance {
 
                 String emailCode = null;
                 while (emailCode == null) {
-                    CodeFinder finder = new CodeFinder();
-                    WebElement emailElement = forceClick(By.id("com.ozan.android:id/editTextEmail"));
-                    emailElement.sendKeys(finder.email());
-                    forceClick(By.id("com.ozan.android:id/buttonContinue"));
+                    CodeFinder finder = getValidFinder();
+
                     Main.debugInfo("Email registered: " + finder.email());
 
                     // Write E-Mail code
                     searchUntilFind(By.id("com.ozan.android:id/otpTextView"));
                     emailCode = finder.loopFetching(20000L);
+                    if (emailCode == null)
+                        forceClick(By.id("com.ozan.android:id/imageViewBackButton"));
                 }
                 Main.debugInfo("Inserting code from email: " + emailCode);
                 new Actions(android).sendKeys(emailCode).perform();
@@ -281,35 +331,43 @@ public class AndroidExecutor implements ExecutorInstance {
                 // Address
                 Main.debugInfo("Fake Address inserting...");
                 forceClick(
-                        By.xpath("//android.widget.EditText[@resource-id=\"com.ozan.android:id/editTextSpinner\" and @text=\"City\"]")
+                        By.xpath("//android.widget.EditText[@resource-id=\"com.ozan.android:id/editTextSpinner\" and @text=\"City\"]"),
+                        10000L
                 );
-                String city = randomConstraintLayout();
-                Thread.sleep(500);
                 forceClick(
-                        By.xpath("//android.widget.EditText[@resource-id=\"com.ozan.android:id/editTextSpinner\" and @text=\"District\"]")
+                        By.xpath("//androidx.recyclerview.widget.RecyclerView[@resource-id=\"com.ozan.android:id/recyclerViewItems\"]/android.view.ViewGroup[1]"),
+                        10000L
                 );
-                String district = randomConstraintLayout();
-                Thread.sleep(500);
+                forceClick(
+                        By.xpath("//android.widget.EditText[@resource-id=\"com.ozan.android:id/editTextSpinner\" and @text=\"District\"]"),
+                        10000L
+                );
+                forceClick(
+                        By.xpath("//androidx.recyclerview.widget.RecyclerView[@resource-id=\"com.ozan.android:id/recyclerViewItems\"]/android.view.ViewGroup[1]"),
+                        10000L
+                );
                 forceClick(
                         By.xpath("//android.widget.EditText[@resource-id=\"com.ozan.android:id/editTextSpinner\" and @text=\"Neighbourhood\"]")
                 );
-                String neighbourhood = randomConstraintLayout();
-
+                forceClick(
+                        By.xpath("//androidx.recyclerview.widget.RecyclerView[@resource-id=\"com.ozan.android:id/recyclerViewItems\"]/android.view.ViewGroup[1]"),
+                        10000L
+                );
                 int buildingNumber = random.nextInt(1, 100);
                 forceClick(By.id("com.ozan.android:id/editTextAddress")).sendKeys(
-                        neighbourhood + " " + buildingNumber + ", " + random.nextInt(390000, 490000)
+                        "AAAAA" + " " + buildingNumber + ", " + random.nextInt(390000, 490000)
                 );
 
-                forceClick(By.id("com.ozan.android:id/editTextBuilding")).sendKeys(String.valueOf(buildingNumber));
-                forceClick(By.id("com.ozan.android:id/editTextApartment")).sendKeys(String.valueOf(random.nextInt(1, 10)));
+                forceClick(By.id("com.ozan.android:id/editTextBuilding"), 10000L).sendKeys(String.valueOf(buildingNumber));
+                forceClick(By.id("com.ozan.android:id/editTextApartment"), 10000L).sendKeys(String.valueOf(random.nextInt(1, 10)));
 
-                forceClick(By.id("com.ozan.android:id/buttonContinue"));
+                forceClick(By.id("com.ozan.android:id/buttonContinue"), 10000L);
 
                 // Profession
                 Main.debugInfo("Profession selecting...");
-                getAndClickOnRandomElement(
-                        By.id("com.ozan.android:id/recyclerViewProfessions"),
-                        false
+                forceClick(
+                        By.xpath("//androidx.recyclerview.widget.RecyclerView[@resource-id=\"com.ozan.android:id/recyclerViewProfessions\"]/android.view.ViewGroup[1]"),
+                        1_000L
                 );
 
                 forceClick(By.id("com.ozan.android:id/buttonContinue"));
@@ -319,27 +377,6 @@ public class AndroidExecutor implements ExecutorInstance {
 
         Thread.sleep(100);
         verifyStep();
-    }
-
-    public String randomConstraintLayout() {
-        return getAndClickOnRandomElement(
-                By.id("com.ozan.android:id/constraintLayout"),
-                true
-        );
-    }
-
-    public String getAndClickOnRandomElement(By selector, boolean framelayout) {
-        List<WebElement> list = searchUntilFind(selector)
-                .findElements(By.className("android.view.ViewGroup"));
-        int choice = random.nextInt(list.size());
-        WebElement element = list.get(choice);
-        WebElement findFrom = framelayout ? element.findElement(By.className("android.widget.FrameLayout")) : element;
-        String text = findFrom.findElement(By.className("android.widget.TextView")).getText();
-
-        element.isDisplayed();
-        element.click();
-
-        return text;
     }
 
     public String registerCard(boolean firstTime) throws InterruptedException, IOException {
